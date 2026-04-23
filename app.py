@@ -9,9 +9,6 @@ import zipfile
 # --- 1. 網頁基礎設定 ---
 st.set_page_config(page_title="貼圖去背助手 - 專業版", layout="centered")
 
-# 📍 [核心修改] 埋入頂部錨點
-st.markdown('<div id="page-top"></div>', unsafe_allow_html=True)
-
 # --- 2. 側邊欄設定區 (Sidebar) ---
 st.sidebar.header("🛠️ AI 去背設定")
 
@@ -34,7 +31,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("### 使用說明")
 st.sidebar.info("1. 上傳原圖\n2. 調整紅框包含文字與人物\n3. 點擊懸浮按鈕加入暫存\n4. 全部完成後一鍵批次去背")
 
-# --- 3. 終極 JavaScript 注入 (錨點追蹤版) ---
+# --- 3. 終極 JavaScript 注入 ---
 components.html(
     """
     <script>
@@ -64,13 +61,13 @@ components.html(
         }
     }, 200);
 
-    // [魔法 B] 上下滑動按鈕 (追蹤錨點)
+    // [魔法 B] 上下滑動按鈕 (追蹤自訂錨點)
     if (!parentDoc.getElementById('custom-scroll-controls')) {
         const scrollDiv = parentDoc.createElement('div');
         scrollDiv.id = 'custom-scroll-controls';
         scrollDiv.style.position = 'fixed';
         scrollDiv.style.right = '15px';
-        scrollDiv.style.bottom = '35px'; 
+        scrollDiv.style.bottom = '90px'; 
         scrollDiv.style.zIndex = '9999';
         scrollDiv.style.display = 'flex';
         scrollDiv.style.flexDirection = 'column';
@@ -78,15 +75,16 @@ components.html(
 
         const btnStyle = "width: 45px; height: 45px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 20px; display: flex; align-items: center; justify-content: center; color: #333; cursor: pointer;";
 
-        // 定義滾動函數：優先找錨點，找不到就找 Streamlit 預設容器
         const scrollToTarget = (targetId) => {
             const target = parentDoc.getElementById(targetId);
             if (target) {
+                // block: 'start' 會讓目標剛好切齊螢幕頂端
                 target.scrollIntoView({behavior: 'smooth', block: 'start'});
             } else {
+                // 容錯機制
                 const scroller = parentDoc.querySelector('[data-testid="stAppViewContainer"]') || parentDoc.querySelector('.main');
                 if (scroller) {
-                    if(targetId === 'page-top') scroller.scrollTo({top: 0, behavior: 'smooth'});
+                    if(targetId === 'crop-area') scroller.scrollTo({top: 0, behavior: 'smooth'}); 
                     else scroller.scrollTo({top: scroller.scrollHeight, behavior: 'smooth'});
                 }
             }
@@ -95,12 +93,12 @@ components.html(
         const upBtn = parentDoc.createElement('button');
         upBtn.innerHTML = '⬆️';
         upBtn.style.cssText = btnStyle;
-        upBtn.onclick = () => scrollToTarget('page-top');
+        upBtn.onclick = () => scrollToTarget('crop-area'); // 📍 按上，回到裁切區
 
         const downBtn = parentDoc.createElement('button');
         downBtn.innerHTML = '⬇️';
         downBtn.style.cssText = btnStyle;
-        downBtn.onclick = () => scrollToTarget('page-bottom');
+        downBtn.onclick = () => scrollToTarget('preview-area'); // 📍 按下，前往暫存預覽區
 
         scrollDiv.appendChild(upBtn);
         scrollDiv.appendChild(downBtn);
@@ -122,12 +120,16 @@ uploaded_file = st.file_uploader("1. 匯入貼圖原圖", type=["png", "jpg", "j
 
 if uploaded_file is not None:
     img = Image.open(uploaded_file)
+    
+    # 📍 上方錨點：插在框選區正上方
+    st.markdown('<div id="crop-area"></div>', unsafe_allow_html=True)
+    
     st.write("### 2. 框選你要的物件")
     
     # 互動式裁切框
     cropped_img = st_cropper(img, realtime_update=True, box_color='#FF0000', aspect_ratio=None)
     
-    # 預覽區
+    # 單張即時預覽區
     st.write("**目前框選預覽：**")
     st.image(cropped_img, width=150)
     st.write("<br><br><br>", unsafe_allow_html=True) 
@@ -138,6 +140,9 @@ if uploaded_file is not None:
         st.rerun()
 
 st.divider()
+
+# 📍 下方錨點：插在暫存區正上方
+st.markdown('<div id="preview-area"></div>', unsafe_allow_html=True)
 
 # --- 6. 暫存區與一鍵批次處理 ---
 if st.session_state.staged_crops:
@@ -191,6 +196,3 @@ if st.session_state.staged_crops:
                 mime="application/zip",
                 use_container_width=True
             )
-
-# 📍 [核心修改] 埋入底部錨點 (放在整份程式碼的最後一行)
-st.markdown('<div id="page-bottom"></div>', unsafe_allow_html=True)
