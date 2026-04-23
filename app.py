@@ -20,19 +20,21 @@ if st.session_state.show_toast:
     st.toast(f"✅ 成功加入！目前暫存區共 {len(st.session_state.staged_crops)} 張圖", icon="🎉")
     st.session_state.show_toast = False
 
-# --- 2. 側邊欄設定區 ---
+# --- 2. 側邊欄設定區 (說明小問號強勢回歸) ---
 st.sidebar.header("🛠️ AI 去背設定")
 model_option = st.sidebar.selectbox(
     "選擇 AI 模型",
     ["u2net (通用)", "isnet-general-use (推薦插畫)", "u2netp (快速輕量)"],
-    index=1
+    index=1,
+    help="isnet 對於文字和插畫的判定通常比較精準。"
 )
 st.sidebar.markdown("---")
-use_matting = st.sidebar.checkbox("開啟進階邊緣保留 (Matting)", value=True)
+use_matting = st.sidebar.checkbox("開啟進階邊緣保留 (Matting)", value=True, help="防止身體或文字被誤砍，邊緣更柔和。")
+
 if use_matting:
-    fg_threshold = st.sidebar.slider("前景門檻值", 0, 255, 240)
-    bg_threshold = st.sidebar.slider("背景門檻值", 0, 255, 10)
-    erode_size = st.sidebar.slider("邊緣侵蝕大小", 0, 30, 10)
+    fg_threshold = st.sidebar.slider("前景門檻值", 0, 255, 240, help="越高越能保留更多細節，但也可能殘留背景。")
+    bg_threshold = st.sidebar.slider("背景門檻值", 0, 255, 10, help="越低越能徹底去除背景。")
+    erode_size = st.sidebar.slider("邊緣侵蝕大小", 0, 30, 10, help="調整邊緣平滑的程度。")
 
 # --- 3. 終極 JavaScript 注入 (加強懸浮 + 修正捲動) ---
 components.html(
@@ -126,7 +128,7 @@ st.divider()
 if st.session_state.staged_crops:
     st.write(f"### 3. 您的暫存區 (共 {len(st.session_state.staged_crops)} 張)")
     
-    # 【修改排版邏輯】：強制「每 3 張圖」建立一行新的網格，確保水平絕對對齊，並照順序編號
+    # 【網格排版邏輯】
     for i in range(0, len(st.session_state.staged_crops), 3):
         cols = st.columns(3)
         for j in range(3):
