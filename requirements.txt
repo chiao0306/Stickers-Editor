@@ -1,4 +1,4 @@
-streamlit==1.32.0
-streamlit-cropper==0.2.2
-Pillow==10.2.0
-rembg[cpu]==2.0.56
+streamlit
+streamlit-cropper
+Pillow
+rembg[cpu]
