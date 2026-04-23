@@ -8,6 +8,37 @@ import zipfile
 # --- 網頁基礎設定 ---
 st.set_page_config(page_title="手動框選 + AI 去背神器", layout="centered")
 
+# --- 注入自訂 CSS (懸浮按鈕魔法) ---
+st.markdown("""
+    <style>
+    /* 尋找我們埋入的 floating-marker，並將它緊鄰的下一個按鈕設為固定懸浮 */
+    div[data-testid="stMarkdown"]:has(.floating-marker) + div[data-testid="stButton"] {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.4); /* 加上立體陰影，超有質感 */
+        border-radius: 50px;
+        width: 80%; /* 手機上佔據 80% 寬度 */
+        max-width: 350px;
+        transition: all 0.2s ease;
+    }
+    /* 點擊時的縮小回饋動畫，按起來更爽 */
+    div[data-testid="stMarkdown"]:has(.floating-marker) + div[data-testid="stButton"]:active {
+        transform: translateX(-50%) scale(0.95);
+    }
+    /* 把按鈕本身也修飾成圓角，加大字體 */
+    div[data-testid="stMarkdown"]:has(.floating-marker) + div[data-testid="stButton"] button {
+        border-radius: 50px;
+        border: none;
+        height: 55px;
+        font-size: 18px !important;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- 初始化暫存區 (Session State) ---
 if 'staged_crops' not in st.session_state:
     st.session_state.staged_crops = []
@@ -21,21 +52,20 @@ if uploaded_file is not None:
     img = Image.open(uploaded_file)
     
     st.write("### 2. 框選你要的物件")
-    st.info("💡 拖曳紅框包含文字與人物後，點擊下方「加入暫存區」。")
+    st.info("💡 拖曳紅框包含文字與人物，確認沒問題後點擊畫面下方的懸浮按鈕。")
     
     # 互動式裁切框
     cropped_img = st_cropper(img, realtime_update=True, box_color='#FF0000', aspect_ratio=None)
     
-    # 預覽與加入按鈕
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.image(cropped_img, caption="目前框選預覽", use_column_width=True)
-    with col2:
-        st.write("") # 排版用留白
-        st.write("")
-        if st.button("➕ 將此圖加入暫存區", use_container_width=True):
-            st.session_state.staged_crops.append(cropped_img)
-            st.rerun()
+    # 預覽區 (放在上方方便對照)
+    st.write("**目前框選預覽：**")
+    st.image(cropped_img, width=150)
+
+    # 💡 魔法發生的地方：埋入隱形的標記，讓 CSS 抓到下面這個按鈕
+    st.markdown('<div class="floating-marker"></div>', unsafe_allow_html=True)
+    if st.button("➕ 將此圖加入暫存區", type="primary", use_container_width=True):
+        st.session_state.staged_crops.append(cropped_img)
+        st.rerun()
 
 st.divider()
 
