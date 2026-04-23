@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit_cropper import st_cropper
 from PIL import Image
 from rembg import remove
@@ -8,38 +9,50 @@ import zipfile
 # --- 網頁基礎設定 ---
 st.set_page_config(page_title="手動框選 + AI 去背神器", layout="centered")
 
-# --- 注入自訂 CSS (懸浮按鈕魔法 - 修正版) ---
-st.markdown("""
-    <style>
-    /* 抓取包含 marker 的「外層容器」，並找到緊鄰的下一個「按鈕容器」強制懸浮 */
-    div[data-testid="element-container"]:has(.floating-marker) + div[data-testid="element-container"] {
-        position: fixed;
-        bottom: 30px;
-        left: 0;
-        right: 0;
-        margin: auto; /* 確保在手機上完美置中 */
-        width: 85%;
-        max-width: 350px;
-        z-index: 9999;
-        transition: all 0.2s ease;
-    }
+# --- 終極 JavaScript 注入 (強制懸浮魔法) ---
+# 因為許多手機瀏覽器不支援最新的 CSS，我們直接用 JS 暴力修改按鈕樣式
+components.html(
+    """
+    <script>
+    const parentDoc = window.parent.document;
     
-    /* 美化按鈕本體，加上圓角與陰影 */
-    div[data-testid="element-container"]:has(.floating-marker) + div[data-testid="element-container"] button {
-        border-radius: 50px;
-        height: 60px;
-        font-size: 18px !important;
-        font-weight: bold;
-        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.4);
-        width: 100%;
-    }
-    
-    /* 點擊時的縮小回饋 */
-    div[data-testid="element-container"]:has(.floating-marker) + div[data-testid="element-container"] button:active {
-        transform: scale(0.95);
-    }
-    </style>
-""", unsafe_allow_html=True)
+    // 建立一個循環偵測，因為 Streamlit 渲染畫面需要一點時間
+    const applyFloatingStyle = setInterval(() => {
+        const buttons = parentDoc.querySelectorAll('button');
+        buttons.forEach(b => {
+            // 透過按鈕上面的文字精準鎖定它
+            if (b.innerText.includes('將此圖加入暫存區')) {
+                // 找到了！強制覆蓋 CSS 讓它飛起來
+                b.style.position = 'fixed';
+                b.style.bottom = '40px';
+                b.style.left = '50%';
+                b.style.transform = 'translateX(-50%)';
+                b.style.zIndex = '9999';
+                
+                // 膠囊形狀與立體質感美化
+                b.style.width = '85%';
+                b.style.maxWidth = '350px';
+                b.style.height = '60px';
+                b.style.borderRadius = '50px';
+                b.style.boxShadow = '0px 10px 25px rgba(0, 0, 0, 0.6)';
+                b.style.border = '2px solid rgba(255, 255, 255, 0.2)';
+                b.style.fontSize = '18px';
+                
+                // 為了避免重複執行，加個標記
+                b.dataset.floated = "true";
+            }
+        });
+        
+        // 只要找到並設定好，就可以停止偵測了
+        if (parentDoc.querySelector('button[data-floated="true"]')) {
+            clearInterval(applyFloatingStyle);
+        }
+    }, 200);
+    </script>
+    """,
+    height=0,
+    width=0,
+)
 
 # --- 初始化暫存區 (Session State) ---
 if 'staged_crops' not in st.session_state:
@@ -63,8 +76,10 @@ if uploaded_file is not None:
     st.write("**目前框選預覽：**")
     st.image(cropped_img, width=150)
 
-    # 💡 魔法發生的地方：埋入隱形的標記，讓 CSS 抓到下面這個按鈕
-    st.markdown('<div class="floating-marker"></div>', unsafe_allow_html=True)
+    # 墊一點空白，避免滑到最底時被漂浮按鈕擋住圖片底部
+    st.write("<br><br><br>", unsafe_allow_html=True) 
+    
+    # 這個按鈕現在會被我們最上面的 JavaScript 強制抓走變成漂浮狀態
     if st.button("➕ 將此圖加入暫存區", type="primary", use_container_width=True):
         st.session_state.staged_crops.append(cropped_img)
         st.rerun()
