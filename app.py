@@ -31,7 +31,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("### 使用說明")
 st.sidebar.info("1. 上傳原圖\n2. 調整紅框包含文字與人物\n3. 點擊懸浮按鈕加入暫存\n4. 全部完成後一鍵批次去背")
 
-# --- 3. 終極 JavaScript 注入 (強制懸浮魔法 + 上下滑動按鈕 修正版) ---
+# --- 3. 終極 JavaScript 注入 (強制懸浮魔法 + 上下滑動按鈕) ---
 components.html(
     """
     <script>
@@ -44,7 +44,7 @@ components.html(
             if (b.innerText.includes('將此圖加入暫存區')) {
                 b.style.position = 'fixed';
                 b.style.bottom = '30px';
-                b.style.left = '45%'; 
+                b.style.left = '45%'; // 稍微偏左，留空間給右邊的滑動按鈕
                 b.style.transform = 'translateX(-50%)';
                 b.style.zIndex = '9999';
                 b.style.width = '70%'; 
@@ -61,41 +61,30 @@ components.html(
         }
     }, 200);
 
-    // [魔法 B] 修正版的「快速上下滑動」按鈕
+    // [魔法 B] 在右下角建立獨立的「快速上下滑動」按鈕
     if (!parentDoc.getElementById('custom-scroll-controls')) {
         const scrollDiv = parentDoc.createElement('div');
         scrollDiv.id = 'custom-scroll-controls';
         scrollDiv.style.position = 'fixed';
         scrollDiv.style.right = '15px';
-        scrollDiv.style.bottom = '35px'; 
+        scrollDiv.style.bottom = '35px'; // 跟底部按鈕對齊
         scrollDiv.style.zIndex = '9999';
         scrollDiv.style.display = 'flex';
         scrollDiv.style.flexDirection = 'column';
         scrollDiv.style.gap = '15px';
 
+        // 圓形漂浮按鈕的共用 CSS 樣式
         const btnStyle = "width: 45px; height: 45px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 20px; display: flex; align-items: center; justify-content: center; color: #333; cursor: pointer;";
-
-        // 🔥 關鍵修正：抓出 Streamlit 真正負責滑動的內部大盒子
-        const getScrollContainer = () => {
-            return parentDoc.querySelector('[data-testid="stAppViewContainer"]') || 
-                   parentDoc.querySelector('.stApp') || 
-                   parentDoc.documentElement;
-        };
 
         const upBtn = parentDoc.createElement('button');
         upBtn.innerHTML = '⬆️';
         upBtn.style.cssText = btnStyle;
-        upBtn.onclick = () => {
-            getScrollContainer().scrollTo({top: 0, behavior: 'smooth'});
-        };
+        upBtn.onclick = () => parentDoc.defaultView.scrollTo({top: 0, behavior: 'smooth'});
 
         const downBtn = parentDoc.createElement('button');
         downBtn.innerHTML = '⬇️';
         downBtn.style.cssText = btnStyle;
-        downBtn.onclick = () => {
-            const container = getScrollContainer();
-            container.scrollTo({top: container.scrollHeight, behavior: 'smooth'});
-        };
+        downBtn.onclick = () => parentDoc.defaultView.scrollTo({top: parentDoc.body.scrollHeight, behavior: 'smooth'});
 
         scrollDiv.appendChild(upBtn);
         scrollDiv.appendChild(downBtn);
@@ -176,4 +165,17 @@ if st.session_state.staged_crops:
                             alpha_matting_erode_size=erode_size
                         )
                     else:
-                        output_img = remove(crop, session=my
+                        output_img = remove(crop, session=my_session)
+                    
+                    img_byte_arr = io.BytesIO()
+                    output_img.save(img_byte_arr, format='PNG')
+                    zip_file.writestr(f"sticker_{idx+1:02d}.png", img_byte_arr.getvalue())
+            
+            st.success("✅ 全數去背完成！")
+            st.download_button(
+                label="📥 下載透明貼圖包 (ZIP)",
+                data=zip_buffer.getvalue(),
+                file_name="smart_stickers.zip",
+                mime="application/zip",
+                use_container_width=True
+            )
