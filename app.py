@@ -12,7 +12,6 @@ st.set_page_config(page_title="貼圖去背助手 - 專業版", layout="centered
 # --- 2. 側邊欄設定區 (Sidebar) ---
 st.sidebar.header("🛠️ AI 去背設定")
 
-# 模型選擇
 model_option = st.sidebar.selectbox(
     "選擇 AI 模型",
     ["u2net (通用)", "isnet-general-use (推薦插畫)", "u2netp (快速輕量)"],
@@ -20,7 +19,6 @@ model_option = st.sidebar.selectbox(
     help="isnet 對於文字和插畫的判定通常比較精準。"
 )
 
-# 進階去背設定 (Alpha Matting)
 st.sidebar.markdown("---")
 use_matting = st.sidebar.checkbox("開啟進階邊緣保留 (Matting)", value=True, help="防止身體或文字被誤砍，邊緣更柔和。")
 
@@ -33,22 +31,24 @@ st.sidebar.markdown("---")
 st.sidebar.write("### 使用說明")
 st.sidebar.info("1. 上傳原圖\n2. 調整紅框包含文字與人物\n3. 點擊懸浮按鈕加入暫存\n4. 全部完成後一鍵批次去背")
 
-# --- 3. 終極 JavaScript 注入 (強制懸浮魔法) ---
+# --- 3. 終極 JavaScript 注入 (強制懸浮魔法 + 上下滑動按鈕) ---
 components.html(
     """
     <script>
     const parentDoc = window.parent.document;
+    
+    // [魔法 A] 強制置底懸浮「加入暫存區」按鈕
     const applyFloatingStyle = setInterval(() => {
         const buttons = parentDoc.querySelectorAll('button');
         buttons.forEach(b => {
             if (b.innerText.includes('將此圖加入暫存區')) {
                 b.style.position = 'fixed';
-                b.style.bottom = '40px';
-                b.style.left = '50%';
+                b.style.bottom = '30px';
+                b.style.left = '45%'; // 稍微偏左，留空間給右邊的滑動按鈕
                 b.style.transform = 'translateX(-50%)';
                 b.style.zIndex = '9999';
-                b.style.width = '85%';
-                b.style.maxWidth = '350px';
+                b.style.width = '70%'; 
+                b.style.maxWidth = '300px';
                 b.style.height = '60px';
                 b.style.borderRadius = '50px';
                 b.style.boxShadow = '0px 10px 25px rgba(0, 0, 0, 0.6)';
@@ -60,6 +60,36 @@ components.html(
             clearInterval(applyFloatingStyle);
         }
     }, 200);
+
+    // [魔法 B] 在右下角建立獨立的「快速上下滑動」按鈕
+    if (!parentDoc.getElementById('custom-scroll-controls')) {
+        const scrollDiv = parentDoc.createElement('div');
+        scrollDiv.id = 'custom-scroll-controls';
+        scrollDiv.style.position = 'fixed';
+        scrollDiv.style.right = '15px';
+        scrollDiv.style.bottom = '35px'; // 跟底部按鈕對齊
+        scrollDiv.style.zIndex = '9999';
+        scrollDiv.style.display = 'flex';
+        scrollDiv.style.flexDirection = 'column';
+        scrollDiv.style.gap = '15px';
+
+        // 圓形漂浮按鈕的共用 CSS 樣式
+        const btnStyle = "width: 45px; height: 45px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 20px; display: flex; align-items: center; justify-content: center; color: #333; cursor: pointer;";
+
+        const upBtn = parentDoc.createElement('button');
+        upBtn.innerHTML = '⬆️';
+        upBtn.style.cssText = btnStyle;
+        upBtn.onclick = () => parentDoc.defaultView.scrollTo({top: 0, behavior: 'smooth'});
+
+        const downBtn = parentDoc.createElement('button');
+        downBtn.innerHTML = '⬇️';
+        downBtn.style.cssText = btnStyle;
+        downBtn.onclick = () => parentDoc.defaultView.scrollTo({top: parentDoc.body.scrollHeight, behavior: 'smooth'});
+
+        scrollDiv.appendChild(upBtn);
+        scrollDiv.appendChild(downBtn);
+        parentDoc.body.appendChild(scrollDiv);
+    }
     </script>
     """,
     height=0, width=0,
@@ -96,12 +126,20 @@ st.divider()
 # --- 6. 暫存區與一鍵批次處理 ---
 if st.session_state.staged_crops:
     st.write(f"### 3. 您的暫存區 (共 {len(st.session_state.staged_crops)} 張)")
+    
+    # 建立 3 欄的排版
     cols = st.columns(3)
     for i, crop in enumerate(st.session_state.staged_crops):
         with cols[i % 3]:
-            st.image(crop, caption=f"圖 {i+1}", use_column_width=True)
+            # 顯示圖片
+            st.image(crop, use_column_width=True)
+            # 每張圖片專屬的刪除按鈕 (透過 key 綁定 index)
+            if st.button("❌ 刪除", key=f"del_{i}", use_container_width=True):
+                st.session_state.staged_crops.pop(i)
+                st.rerun()
             
-    if st.button("🗑️ 清空暫存區", type="secondary"):
+    st.write("<br>", unsafe_allow_html=True)
+    if st.button("🗑️ 清空所有暫存", type="secondary"):
         st.session_state.staged_crops = []
         st.rerun()
 
@@ -117,7 +155,6 @@ if st.session_state.staged_crops:
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for idx, crop in enumerate(st.session_state.staged_crops):
                     
-                    # 判斷是否使用 Matting 參數
                     if use_matting:
                         output_img = remove(
                             crop, 
