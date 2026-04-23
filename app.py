@@ -9,9 +9,6 @@ import zipfile
 # --- 1. 網頁基礎設定 ---
 st.set_page_config(page_title="貼圖去背助手 - 專業版", layout="centered")
 
-# 📍 [核心修改] 埋入頂部錨點
-st.markdown('<div id="page-top"></div>', unsafe_allow_html=True)
-
 # --- 2. 側邊欄設定區 (Sidebar) ---
 st.sidebar.header("🛠️ AI 去背設定")
 
@@ -194,3 +191,6 @@ if st.session_state.staged_crops:
                 mime="application/zip",
                 use_container_width=True
             )
+            
+# 📍 [核心修改] 埋入頂部錨點
+st.markdown('<div id="page-top"></div>', unsafe_allow_html=True)
