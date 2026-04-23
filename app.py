@@ -9,6 +9,9 @@ import zipfile
 # --- 1. 網頁基礎設定 ---
 st.set_page_config(page_title="貼圖去背助手 - 專業版", layout="centered")
 
+# 📍 [核心修改] 埋入頂部錨點
+st.markdown('<div id="page-top"></div>', unsafe_allow_html=True)
+
 # --- 2. 側邊欄設定區 (Sidebar) ---
 st.sidebar.header("🛠️ AI 去背設定")
 
@@ -140,9 +143,6 @@ st.divider()
 if st.session_state.staged_crops:
     st.write(f"### 3. 您的暫存區 (共 {len(st.session_state.staged_crops)} 張)")
     
-    # 📍 [核心修改] 埋入底部錨點 (放在整份程式碼的最後一行)
-    st.markdown('<div id="page-bottom"></div>', unsafe_allow_html=True)
-    
     cols = st.columns(3)
     for i, crop in enumerate(st.session_state.staged_crops):
         with cols[i % 3]:
@@ -191,6 +191,6 @@ if st.session_state.staged_crops:
                 mime="application/zip",
                 use_container_width=True
             )
-            
-# 📍 [核心修改] 埋入頂部錨點
-st.markdown('<div id="page-top"></div>', unsafe_allow_html=True)
+
+# 📍 [核心修改] 埋入底部錨點 (放在整份程式碼的最後一行)
+st.markdown('<div id="page-bottom"></div>', unsafe_allow_html=True)
