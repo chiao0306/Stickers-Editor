@@ -8,33 +8,35 @@ import zipfile
 # --- 網頁基礎設定 ---
 st.set_page_config(page_title="手動框選 + AI 去背神器", layout="centered")
 
-# --- 注入自訂 CSS (懸浮按鈕魔法) ---
+# --- 注入自訂 CSS (懸浮按鈕魔法 - 修正版) ---
 st.markdown("""
     <style>
-    /* 尋找我們埋入的 floating-marker，並將它緊鄰的下一個按鈕設為固定懸浮 */
-    div[data-testid="stMarkdown"]:has(.floating-marker) + div[data-testid="stButton"] {
+    /* 抓取包含 marker 的「外層容器」，並找到緊鄰的下一個「按鈕容器」強制懸浮 */
+    div[data-testid="element-container"]:has(.floating-marker) + div[data-testid="element-container"] {
         position: fixed;
         bottom: 30px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 9999;
-        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.4); /* 加上立體陰影，超有質感 */
-        border-radius: 50px;
-        width: 80%; /* 手機上佔據 80% 寬度 */
+        left: 0;
+        right: 0;
+        margin: auto; /* 確保在手機上完美置中 */
+        width: 85%;
         max-width: 350px;
+        z-index: 9999;
         transition: all 0.2s ease;
     }
-    /* 點擊時的縮小回饋動畫，按起來更爽 */
-    div[data-testid="stMarkdown"]:has(.floating-marker) + div[data-testid="stButton"]:active {
-        transform: translateX(-50%) scale(0.95);
-    }
-    /* 把按鈕本身也修飾成圓角，加大字體 */
-    div[data-testid="stMarkdown"]:has(.floating-marker) + div[data-testid="stButton"] button {
+    
+    /* 美化按鈕本體，加上圓角與陰影 */
+    div[data-testid="element-container"]:has(.floating-marker) + div[data-testid="element-container"] button {
         border-radius: 50px;
-        border: none;
-        height: 55px;
+        height: 60px;
         font-size: 18px !important;
         font-weight: bold;
+        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.4);
+        width: 100%;
+    }
+    
+    /* 點擊時的縮小回饋 */
+    div[data-testid="element-container"]:has(.floating-marker) + div[data-testid="element-container"] button:active {
+        transform: scale(0.95);
     }
     </style>
 """, unsafe_allow_html=True)
