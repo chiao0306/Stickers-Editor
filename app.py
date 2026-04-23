@@ -9,36 +9,28 @@ import zipfile
 # --- 1. 網頁基礎設定 ---
 st.set_page_config(page_title="貼圖去背助手 - 專業版", layout="centered")
 
-# --- 2. 側邊欄設定區 (Sidebar) ---
+# --- 2. 側邊欄設定區 (維持原樣) ---
 st.sidebar.header("🛠️ AI 去背設定")
-
 model_option = st.sidebar.selectbox(
     "選擇 AI 模型",
     ["u2net (通用)", "isnet-general-use (推薦插畫)", "u2netp (快速輕量)"],
-    index=1,
-    help="isnet 對於文字和插畫的判定通常比較精準。"
+    index=1
 )
-
 st.sidebar.markdown("---")
-use_matting = st.sidebar.checkbox("開啟進階邊緣保留 (Matting)", value=True, help="防止身體或文字被誤砍，邊緣更柔和。")
-
+use_matting = st.sidebar.checkbox("開啟進階邊緣保留 (Matting)", value=True)
 if use_matting:
-    fg_threshold = st.sidebar.slider("前景門檻值", 0, 255, 240, help="越高越能保留更多細節，但也可能殘留背景。")
-    bg_threshold = st.sidebar.slider("背景門檻值", 0, 255, 10, help="越低越能徹底去除背景。")
-    erode_size = st.sidebar.slider("邊緣侵蝕大小", 0, 30, 10, help="調整邊緣平滑的程度。")
+    fg_threshold = st.sidebar.slider("前景門檻值", 0, 255, 240)
+    bg_threshold = st.sidebar.slider("背景門檻值", 0, 255, 10)
+    erode_size = st.sidebar.slider("邊緣侵蝕大小", 0, 30, 10)
 
-st.sidebar.markdown("---")
-st.sidebar.write("### 使用說明")
-st.sidebar.info("1. 上傳原圖\n2. 調整紅框包含文字與人物\n3. 點擊懸浮按鈕加入暫存\n4. 全部完成後一鍵批次去背")
-
-# --- 3. 終極 JavaScript 注入 ---
+# --- 3. 終極 JavaScript 注入 (加強懸浮 + 修正捲動) ---
 components.html(
     """
     <script>
     const parentDoc = window.parent.document;
     
-    // [魔法 A] 強制置底懸浮「加入暫存區」按鈕
-    const applyFloatingStyle = setInterval(() => {
+    // [修正] 永恆懸浮魔法：移除 clearInterval，確保重整後按鈕依然漂浮
+    setInterval(() => {
         const buttons = parentDoc.querySelectorAll('button');
         buttons.forEach(b => {
             if (b.innerText.includes('將此圖加入暫存區')) {
@@ -53,50 +45,34 @@ components.html(
                 b.style.borderRadius = '50px';
                 b.style.boxShadow = '0px 10px 25px rgba(0, 0, 0, 0.6)';
                 b.style.fontSize = '18px';
-                b.dataset.floated = "true";
+                b.style.backgroundColor = '#ff4b4b'; // 強制紅色
+                b.style.color = 'white';
             }
         });
-        if (parentDoc.querySelector('button[data-floated="true"]')) {
-            clearInterval(applyFloatingStyle);
-        }
-    }, 200);
+    }, 100);
 
-    // [魔法 B] 上下滑動按鈕 (追蹤自訂錨點)
+    // [滑動按鈕] 位置調高，避開系統選單
     if (!parentDoc.getElementById('custom-scroll-controls')) {
         const scrollDiv = parentDoc.createElement('div');
         scrollDiv.id = 'custom-scroll-controls';
-        scrollDiv.style.position = 'fixed';
-        scrollDiv.style.right = '15px';
-        scrollDiv.style.bottom = '90px'; 
-        scrollDiv.style.zIndex = '9999';
-        scrollDiv.style.display = 'flex';
-        scrollDiv.style.flexDirection = 'column';
-        scrollDiv.style.gap = '15px';
+        scrollDiv.style.cssText = "position:fixed; right:15px; bottom:100px; z-index:9999; display:flex; flex-direction:column; gap:15px;";
 
         const btnStyle = "width: 45px; height: 45px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 20px; display: flex; align-items: center; justify-content: center; color: #333; cursor: pointer;";
 
         const scrollToTarget = (targetId) => {
             const target = parentDoc.getElementById(targetId);
-            if (target) {
-                target.scrollIntoView({behavior: 'smooth', block: 'start'});
-            } else {
-                const scroller = parentDoc.querySelector('[data-testid="stAppViewContainer"]') || parentDoc.querySelector('.main');
-                if (scroller) {
-                    if(targetId === 'crop-area') scroller.scrollTo({top: 0, behavior: 'smooth'}); 
-                    else scroller.scrollTo({top: scroller.scrollHeight, behavior: 'smooth'});
-                }
-            }
+            if (target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
         };
 
         const upBtn = parentDoc.createElement('button');
         upBtn.innerHTML = '⬆️';
         upBtn.style.cssText = btnStyle;
-        upBtn.onclick = () => scrollToTarget('crop-area'); // 📍 追蹤裁切區
+        upBtn.onclick = () => scrollToTarget('crop-area');
 
         const downBtn = parentDoc.createElement('button');
         downBtn.innerHTML = '⬇️';
         downBtn.style.cssText = btnStyle;
-        downBtn.onclick = () => scrollToTarget('preview-area'); // 📍 追蹤預覽區
+        downBtn.onclick = () => scrollToTarget('preview-area');
 
         scrollDiv.appendChild(upBtn);
         scrollDiv.appendChild(downBtn);
@@ -119,23 +95,18 @@ uploaded_file = st.file_uploader("1. 匯入貼圖原圖", type=["png", "jpg", "j
 if uploaded_file is not None:
     img = Image.open(uploaded_file)
     
-    # 📍 上方錨點：插在框選區正上方
+    # ⬆️ 向上錨點：插在框選區
     st.markdown('<div id="crop-area"></div>', unsafe_allow_html=True)
-    
     st.write("### 2. 框選你要的物件")
     
-    # 互動式裁切框
     cropped_img = st_cropper(img, realtime_update=True, box_color='#FF0000', aspect_ratio=None)
     
-    # 📍 下方錨點：我們把它移到這裡了！精準定位在「單張預覽」的正上方
+    # ⬇️ 向下錨點：插在預覽區
     st.markdown('<div id="preview-area"></div>', unsafe_allow_html=True)
-    
-    # 單張即時預覽區
     st.write("**目前框選預覽：**")
     st.image(cropped_img, width=150)
     st.write("<br><br><br>", unsafe_allow_html=True) 
 
-    # 加入暫存區按鈕
     if st.button("➕ 將此圖加入暫存區", type="primary", use_container_width=True):
         st.session_state.staged_crops.append(cropped_img)
         st.rerun()
@@ -145,7 +116,6 @@ st.divider()
 # --- 6. 暫存區與一鍵批次處理 ---
 if st.session_state.staged_crops:
     st.write(f"### 3. 您的暫存區 (共 {len(st.session_state.staged_crops)} 張)")
-    
     cols = st.columns(3)
     for i, crop in enumerate(st.session_state.staged_crops):
         with cols[i % 3]:
@@ -161,27 +131,21 @@ if st.session_state.staged_crops:
 
     st.write("### 4. AI 魔法時間")
     if st.button("✨ 一鍵批次去背並下載", type="primary", use_container_width=True):
-        with st.spinner(f"正在下載/讀取 {model_option} 模型，請稍候..."):
-            
+        with st.spinner(f"AI 處理中..."):
             model_name = model_option.split(" ")[0]
             my_session = new_session(model_name)
-            
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for idx, crop in enumerate(st.session_state.staged_crops):
-                    
                     if use_matting:
                         output_img = remove(
-                            crop, 
-                            session=my_session,
-                            alpha_matting=True,
+                            crop, session=my_session, alpha_matting=True,
                             alpha_matting_foreground_threshold=fg_threshold,
                             alpha_matting_background_threshold=bg_threshold,
                             alpha_matting_erode_size=erode_size
                         )
                     else:
                         output_img = remove(crop, session=my_session)
-                    
                     img_byte_arr = io.BytesIO()
                     output_img.save(img_byte_arr, format='PNG')
                     zip_file.writestr(f"sticker_{idx+1:02d}.png", img_byte_arr.getvalue())
