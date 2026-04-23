@@ -144,7 +144,7 @@ if st.session_state.staged_crops:
     st.write(f"### 3. 您的暫存區 (共 {len(st.session_state.staged_crops)} 張)")
     
     # 📍 [核心修改] 埋入底部錨點 (放在整份程式碼的最後一行)
-st.markdown('<div id="page-bottom"></div>', unsafe_allow_html=True)
+    st.markdown('<div id="page-bottom"></div>', unsafe_allow_html=True)
     
     cols = st.columns(3)
     for i, crop in enumerate(st.session_state.staged_crops):
