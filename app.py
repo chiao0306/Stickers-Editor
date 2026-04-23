@@ -9,27 +9,35 @@ import zipfile
 # --- 1. 網頁基礎設定 ---
 st.set_page_config(page_title="貼圖去背助手 - 專業版", layout="centered")
 
-# --- 2. 側邊欄設定區 (維持原樣) ---
+# --- 2. 側邊欄設定區 (加回小問號提示與說明) ---
 st.sidebar.header("🛠️ AI 去背設定")
+
 model_option = st.sidebar.selectbox(
     "選擇 AI 模型",
     ["u2net (通用)", "isnet-general-use (推薦插畫)", "u2netp (快速輕量)"],
-    index=1
+    index=1,
+    help="isnet 對於文字和插畫的判定通常比較精準。"
 )
-st.sidebar.markdown("---")
-use_matting = st.sidebar.checkbox("開啟進階邊緣保留 (Matting)", value=True)
-if use_matting:
-    fg_threshold = st.sidebar.slider("前景門檻值", 0, 255, 240)
-    bg_threshold = st.sidebar.slider("背景門檻值", 0, 255, 10)
-    erode_size = st.sidebar.slider("邊緣侵蝕大小", 0, 30, 10)
 
-# --- 3. 終極 JavaScript 注入 (加強懸浮 + 修正捲動) ---
+st.sidebar.markdown("---")
+use_matting = st.sidebar.checkbox("開啟進階邊緣保留 (Matting)", value=True, help="防止身體或文字被誤砍，邊緣更柔和。")
+
+if use_matting:
+    fg_threshold = st.sidebar.slider("前景門檻值", 0, 255, 240, help="越高越能保留更多細節，但也可能殘留背景。")
+    bg_threshold = st.sidebar.slider("背景門檻值", 0, 255, 10, help="越低越能徹底去除背景。")
+    erode_size = st.sidebar.slider("邊緣侵蝕大小", 0, 30, 10, help="調整邊緣平滑的程度。")
+
+st.sidebar.markdown("---")
+st.sidebar.write("### 使用說明")
+st.sidebar.info("1. 上傳原圖\n2. 調整紅框包含文字與人物\n3. 點擊懸浮按鈕加入暫存\n4. 全部完成後一鍵批次去背")
+
+# --- 3. 終極 JavaScript 注入 (維持永恆懸浮與自訂錨點) ---
 components.html(
     """
     <script>
     const parentDoc = window.parent.document;
     
-    // [修正] 永恆懸浮魔法：移除 clearInterval，確保重整後按鈕依然漂浮
+    // 永恆懸浮魔法：確保重整後按鈕依然漂浮
     setInterval(() => {
         const buttons = parentDoc.querySelectorAll('button');
         buttons.forEach(b => {
@@ -45,13 +53,13 @@ components.html(
                 b.style.borderRadius = '50px';
                 b.style.boxShadow = '0px 10px 25px rgba(0, 0, 0, 0.6)';
                 b.style.fontSize = '18px';
-                b.style.backgroundColor = '#ff4b4b'; // 強制紅色
+                b.style.backgroundColor = '#ff4b4b'; 
                 b.style.color = 'white';
             }
         });
     }, 100);
 
-    // [滑動按鈕] 位置調高，避開系統選單
+    // 滑動按鈕：位置調高，避開系統選單
     if (!parentDoc.getElementById('custom-scroll-controls')) {
         const scrollDiv = parentDoc.createElement('div');
         scrollDiv.id = 'custom-scroll-controls';
