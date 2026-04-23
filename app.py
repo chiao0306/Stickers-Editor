@@ -9,6 +9,9 @@ import zipfile
 # --- 1. 網頁基礎設定 ---
 st.set_page_config(page_title="貼圖去背助手 - 專業版", layout="centered")
 
+# 📍 [核心修改] 埋入頂部錨點
+st.markdown('<div id="page-top"></div>', unsafe_allow_html=True)
+
 # --- 2. 側邊欄設定區 (Sidebar) ---
 st.sidebar.header("🛠️ AI 去背設定")
 
@@ -31,7 +34,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("### 使用說明")
 st.sidebar.info("1. 上傳原圖\n2. 調整紅框包含文字與人物\n3. 點擊懸浮按鈕加入暫存\n4. 全部完成後一鍵批次去背")
 
-# --- 3. 終極 JavaScript 注入 (強制懸浮魔法 + 上下滑動按鈕修正版) ---
+# --- 3. 終極 JavaScript 注入 (錨點追蹤版) ---
 components.html(
     """
     <script>
@@ -61,7 +64,7 @@ components.html(
         }
     }, 200);
 
-    // [魔法 B] 在右下角建立獨立的「快速上下滑動」按鈕 (使用精準定位法)
+    // [魔法 B] 上下滑動按鈕 (追蹤錨點)
     if (!parentDoc.getElementById('custom-scroll-controls')) {
         const scrollDiv = parentDoc.createElement('div');
         scrollDiv.id = 'custom-scroll-controls';
@@ -75,23 +78,29 @@ components.html(
 
         const btnStyle = "width: 45px; height: 45px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 20px; display: flex; align-items: center; justify-content: center; color: #333; cursor: pointer;";
 
-        // 向上按鈕：直接抓取畫面上的「第一個」元件，把它拉到視線頂端
+        // 定義滾動函數：優先找錨點，找不到就找 Streamlit 預設容器
+        const scrollToTarget = (targetId) => {
+            const target = parentDoc.getElementById(targetId);
+            if (target) {
+                target.scrollIntoView({behavior: 'smooth', block: 'start'});
+            } else {
+                const scroller = parentDoc.querySelector('[data-testid="stAppViewContainer"]') || parentDoc.querySelector('.main');
+                if (scroller) {
+                    if(targetId === 'page-top') scroller.scrollTo({top: 0, behavior: 'smooth'});
+                    else scroller.scrollTo({top: scroller.scrollHeight, behavior: 'smooth'});
+                }
+            }
+        };
+
         const upBtn = parentDoc.createElement('button');
         upBtn.innerHTML = '⬆️';
         upBtn.style.cssText = btnStyle;
-        upBtn.onclick = () => {
-            const elements = parentDoc.querySelectorAll('[data-testid="element-container"]');
-            if (elements.length > 0) elements[0].scrollIntoView({behavior: 'smooth', block: 'start'});
-        };
+        upBtn.onclick = () => scrollToTarget('page-top');
 
-        // 向下按鈕：直接抓取畫面上的「最後一個」元件，把它拉到視線底端
         const downBtn = parentDoc.createElement('button');
         downBtn.innerHTML = '⬇️';
         downBtn.style.cssText = btnStyle;
-        downBtn.onclick = () => {
-            const elements = parentDoc.querySelectorAll('[data-testid="element-container"]');
-            if (elements.length > 0) elements[elements.length - 1].scrollIntoView({behavior: 'smooth', block: 'end'});
-        };
+        downBtn.onclick = () => scrollToTarget('page-bottom');
 
         scrollDiv.appendChild(upBtn);
         scrollDiv.appendChild(downBtn);
@@ -134,13 +143,10 @@ st.divider()
 if st.session_state.staged_crops:
     st.write(f"### 3. 您的暫存區 (共 {len(st.session_state.staged_crops)} 張)")
     
-    # 建立 3 欄的排版
     cols = st.columns(3)
     for i, crop in enumerate(st.session_state.staged_crops):
         with cols[i % 3]:
-            # 顯示圖片
             st.image(crop, use_column_width=True)
-            # 每張圖片專屬的刪除按鈕 (透過 key 綁定 index)
             if st.button("❌ 刪除", key=f"del_{i}", use_container_width=True):
                 st.session_state.staged_crops.pop(i)
                 st.rerun()
@@ -154,7 +160,6 @@ if st.session_state.staged_crops:
     if st.button("✨ 一鍵批次去背並下載", type="primary", use_container_width=True):
         with st.spinner(f"正在下載/讀取 {model_option} 模型，請稍候..."):
             
-            # 根據側邊欄選擇建立 AI Session
             model_name = model_option.split(" ")[0]
             my_session = new_session(model_name)
             
@@ -186,3 +191,6 @@ if st.session_state.staged_crops:
                 mime="application/zip",
                 use_container_width=True
             )
+
+# 📍 [核心修改] 埋入底部錨點 (放在整份程式碼的最後一行)
+st.markdown('<div id="page-bottom"></div>', unsafe_allow_html=True)
