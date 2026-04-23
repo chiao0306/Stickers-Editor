@@ -31,7 +31,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("### 使用說明")
 st.sidebar.info("1. 上傳原圖\n2. 調整紅框包含文字與人物\n3. 點擊懸浮按鈕加入暫存\n4. 全部完成後一鍵批次去背")
 
-# --- 3. 終極 JavaScript 注入 (強制懸浮魔法 + 上下滑動按鈕) ---
+# --- 3. 終極 JavaScript 注入 (強制懸浮魔法 + 上下滑動按鈕修正版) ---
 components.html(
     """
     <script>
@@ -44,7 +44,7 @@ components.html(
             if (b.innerText.includes('將此圖加入暫存區')) {
                 b.style.position = 'fixed';
                 b.style.bottom = '30px';
-                b.style.left = '45%'; // 稍微偏左，留空間給右邊的滑動按鈕
+                b.style.left = '45%'; 
                 b.style.transform = 'translateX(-50%)';
                 b.style.zIndex = '9999';
                 b.style.width = '70%'; 
@@ -61,30 +61,37 @@ components.html(
         }
     }, 200);
 
-    // [魔法 B] 在右下角建立獨立的「快速上下滑動」按鈕
+    // [魔法 B] 在右下角建立獨立的「快速上下滑動」按鈕 (使用精準定位法)
     if (!parentDoc.getElementById('custom-scroll-controls')) {
         const scrollDiv = parentDoc.createElement('div');
         scrollDiv.id = 'custom-scroll-controls';
         scrollDiv.style.position = 'fixed';
         scrollDiv.style.right = '15px';
-        scrollDiv.style.bottom = '35px'; // 跟底部按鈕對齊
+        scrollDiv.style.bottom = '35px'; 
         scrollDiv.style.zIndex = '9999';
         scrollDiv.style.display = 'flex';
         scrollDiv.style.flexDirection = 'column';
         scrollDiv.style.gap = '15px';
 
-        // 圓形漂浮按鈕的共用 CSS 樣式
         const btnStyle = "width: 45px; height: 45px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 20px; display: flex; align-items: center; justify-content: center; color: #333; cursor: pointer;";
 
+        // 向上按鈕：直接抓取畫面上的「第一個」元件，把它拉到視線頂端
         const upBtn = parentDoc.createElement('button');
         upBtn.innerHTML = '⬆️';
         upBtn.style.cssText = btnStyle;
-        upBtn.onclick = () => parentDoc.defaultView.scrollTo({top: 0, behavior: 'smooth'});
+        upBtn.onclick = () => {
+            const elements = parentDoc.querySelectorAll('[data-testid="element-container"]');
+            if (elements.length > 0) elements[0].scrollIntoView({behavior: 'smooth', block: 'start'});
+        };
 
+        // 向下按鈕：直接抓取畫面上的「最後一個」元件，把它拉到視線底端
         const downBtn = parentDoc.createElement('button');
         downBtn.innerHTML = '⬇️';
         downBtn.style.cssText = btnStyle;
-        downBtn.onclick = () => parentDoc.defaultView.scrollTo({top: parentDoc.body.scrollHeight, behavior: 'smooth'});
+        downBtn.onclick = () => {
+            const elements = parentDoc.querySelectorAll('[data-testid="element-container"]');
+            if (elements.length > 0) elements[elements.length - 1].scrollIntoView({behavior: 'smooth', block: 'end'});
+        };
 
         scrollDiv.appendChild(upBtn);
         scrollDiv.appendChild(downBtn);
