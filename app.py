@@ -78,10 +78,8 @@ components.html(
         const scrollToTarget = (targetId) => {
             const target = parentDoc.getElementById(targetId);
             if (target) {
-                // block: 'start' 會讓目標剛好切齊螢幕頂端
                 target.scrollIntoView({behavior: 'smooth', block: 'start'});
             } else {
-                // 容錯機制
                 const scroller = parentDoc.querySelector('[data-testid="stAppViewContainer"]') || parentDoc.querySelector('.main');
                 if (scroller) {
                     if(targetId === 'crop-area') scroller.scrollTo({top: 0, behavior: 'smooth'}); 
@@ -93,12 +91,12 @@ components.html(
         const upBtn = parentDoc.createElement('button');
         upBtn.innerHTML = '⬆️';
         upBtn.style.cssText = btnStyle;
-        upBtn.onclick = () => scrollToTarget('crop-area'); // 📍 按上，回到裁切區
+        upBtn.onclick = () => scrollToTarget('crop-area'); // 📍 追蹤裁切區
 
         const downBtn = parentDoc.createElement('button');
         downBtn.innerHTML = '⬇️';
         downBtn.style.cssText = btnStyle;
-        downBtn.onclick = () => scrollToTarget('preview-area'); // 📍 按下，前往暫存預覽區
+        downBtn.onclick = () => scrollToTarget('preview-area'); // 📍 追蹤預覽區
 
         scrollDiv.appendChild(upBtn);
         scrollDiv.appendChild(downBtn);
@@ -129,6 +127,9 @@ if uploaded_file is not None:
     # 互動式裁切框
     cropped_img = st_cropper(img, realtime_update=True, box_color='#FF0000', aspect_ratio=None)
     
+    # 📍 下方錨點：我們把它移到這裡了！精準定位在「單張預覽」的正上方
+    st.markdown('<div id="preview-area"></div>', unsafe_allow_html=True)
+    
     # 單張即時預覽區
     st.write("**目前框選預覽：**")
     st.image(cropped_img, width=150)
@@ -140,9 +141,6 @@ if uploaded_file is not None:
         st.rerun()
 
 st.divider()
-
-# 📍 下方錨點：插在暫存區正上方
-st.markdown('<div id="preview-area"></div>', unsafe_allow_html=True)
 
 # --- 6. 暫存區與一鍵批次處理 ---
 if st.session_state.staged_crops:
