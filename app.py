@@ -9,6 +9,12 @@ import zipfile
 # --- 1. 網頁基礎設定 ---
 st.set_page_config(page_title="貼圖去背助手 - 專業版", layout="centered")
 
+# --- 1.2 模型快取魔法 (拯救記憶體崩潰的核心) ---
+# 使用 st.cache_resource 保證同一個模型只會被載入記憶體一次
+@st.cache_resource(show_spinner="首次載入 AI 模型中...")
+def get_rembg_session(model_name):
+    return new_session(model_name)
+
 # --- 1.5 狀態初始化與彈出通知 ---
 if 'staged_crops' not in st.session_state:
     st.session_state.staged_crops = []
@@ -20,7 +26,7 @@ if st.session_state.show_toast:
     st.toast(f"✅ 成功加入！目前暫存區共 {len(st.session_state.staged_crops)} 張圖", icon="🎉")
     st.session_state.show_toast = False
 
-# --- 2. 側邊欄設定區 (說明小問號強勢回歸) ---
+# --- 2. 側邊欄設定區 ---
 st.sidebar.header("🛠️ AI 去背設定")
 model_option = st.sidebar.selectbox(
     "選擇 AI 模型",
@@ -58,7 +64,7 @@ components.html(
                 b.style.borderRadius = '50px';
                 b.style.boxShadow = '0px 10px 25px rgba(0, 0, 0, 0.6)';
                 b.style.fontSize = '18px';
-                b.style.backgroundColor = '#ff4b4b'; // 強制紅色
+                b.style.backgroundColor = '#ff4b4b'; 
                 b.style.color = 'white';
             }
         });
@@ -104,21 +110,43 @@ uploaded_file = st.file_uploader("1. 匯入貼圖原圖", type=["png", "jpg", "j
 if uploaded_file is not None:
     img = Image.open(uploaded_file)
     
-    # ⬆️ 向上錨點
     st.markdown('<div id="crop-area"></div>', unsafe_allow_html=True)
     st.write("### 2. 框選你要的物件")
     
     cropped_img = st_cropper(img, realtime_update=True, box_color='#FF0000', aspect_ratio=None)
     
-    # ⬇️ 向下錨點
     st.markdown('<div id="preview-area"></div>', unsafe_allow_html=True)
-    st.write("**目前框選預覽：**")
-    st.image(cropped_img, width=150)
+    
+    # 【新增：即時預覽功能區塊】
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write("**目前框選範圍：**")
+        st.image(cropped_img, width=150)
+    
+    with col2:
+        st.write("**去背效果預覽：**")
+        if st.button("🔍 測試目前去背參數", help="套用左側參數，預覽此單張圖片的去背結果"):
+            with st.spinner("AI 運算中..."):
+                # 呼叫快取模型，不再重複佔用記憶體
+                model_name = model_option.split(" ")[0]
+                my_session = get_rembg_session(model_name)
+                
+                if use_matting:
+                    preview_img = remove(
+                        cropped_img, session=my_session, alpha_matting=True,
+                        alpha_matting_foreground_threshold=fg_threshold,
+                        alpha_matting_background_threshold=bg_threshold,
+                        alpha_matting_erode_size=erode_size
+                    )
+                else:
+                    preview_img = remove(cropped_img, session=my_session)
+                
+                st.image(preview_img, width=150)
+    
     st.write("<br><br><br>", unsafe_allow_html=True) 
 
     if st.button("➕ 將此圖加入暫存區", type="primary", use_container_width=True):
         st.session_state.staged_crops.append(cropped_img)
-        # 開啟通知旗標
         st.session_state.show_toast = True
         st.rerun()
 
@@ -128,7 +156,6 @@ st.divider()
 if st.session_state.staged_crops:
     st.write(f"### 3. 您的暫存區 (共 {len(st.session_state.staged_crops)} 張)")
     
-    # 【網格排版邏輯】
     for i in range(0, len(st.session_state.staged_crops), 3):
         cols = st.columns(3)
         for j in range(3):
@@ -148,30 +175,8 @@ if st.session_state.staged_crops:
 
     st.write("### 4. AI 魔法時間")
     if st.button("✨ 一鍵批次去背並下載", type="primary", use_container_width=True):
-        with st.spinner(f"AI 處理中..."):
-            model_name = model_option.split(" ")[0]
-            my_session = new_session(model_name)
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for idx, crop in enumerate(st.session_state.staged_crops):
-                    if use_matting:
-                        output_img = remove(
-                            crop, session=my_session, alpha_matting=True,
-                            alpha_matting_foreground_threshold=fg_threshold,
-                            alpha_matting_background_threshold=bg_threshold,
-                            alpha_matting_erode_size=erode_size
-                        )
-                    else:
-                        output_img = remove(crop, session=my_session)
-                    img_byte_arr = io.BytesIO()
-                    output_img.save(img_byte_arr, format='PNG')
-                    zip_file.writestr(f"sticker_{idx+1:02d}.png", img_byte_arr.getvalue())
+        with st.spinner(f"批次處理中..."):
             
-            st.success("✅ 全數去背完成！")
-            st.download_button(
-                label="📥 下載透明貼圖包 (ZIP)",
-                data=zip_buffer.getvalue(),
-                file_name="smart_stickers.zip",
-                mime="application/zip",
-                use_container_width=True
-            )
+            # 同樣呼叫快取模型
+            model_name = model_option.split(" ")[0]
+            my_session = get_rembg
